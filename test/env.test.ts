@@ -27,6 +27,21 @@ describe('GitHub environment configuration', () => {
     expect(env.GITHUB_USER_EMAIL_DOMAIN).toBe('users.noreply.github.com')
   })
 
+  it('provides GitHub defaults when validation is skipped during builds', async () => {
+    for (const key of GITHUB_ENV_KEYS) {
+      delete process.env[key]
+    }
+    vi.stubEnv('SKIP_ENV_VALIDATIONS', 'true')
+    vi.resetModules()
+
+    const { env } = await import('../env.mjs')
+
+    expect(env.GITHUB_SERVER_URL).toBe('https://github.com')
+    expect(env.GITHUB_API_URL).toBe('https://api.github.com')
+    expect(env.GITHUB_GRAPHQL_URL).toBe('https://api.github.com/graphql')
+    expect(env.GITHUB_USER_EMAIL_DOMAIN).toBe('users.noreply.github.com')
+  })
+
   it('validates and normalizes explicit endpoints', async () => {
     vi.stubEnv('GITHUB_SERVER_URL', 'https://ghes.example.com/')
     vi.stubEnv('GITHUB_API_URL', 'https://ghes.example.com/api/v3/')

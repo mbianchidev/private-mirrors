@@ -9,11 +9,13 @@ export { personalOctokit } from './rest'
 
 const appOctokitLogger = logger.getSubLogger({ name: 'app-octokit' })
 
-const privateKey = !env.PRIVATE_KEY.includes('-----BEGIN RSA PRIVATE KEY-----')
-  ? // Support optional base64 decoding of the private key to prevent issues with complicated environment variable passing scenarios
-    Buffer.from(env.PRIVATE_KEY, 'base64').toString('utf8')
-  : // Handle a bug with multiline envs in docker - See https://github.com/moby/moby/issues/46773
-    env.PRIVATE_KEY.replace(/\\n/g, '\n')
+const privateKey =
+  env.PRIVATE_KEY &&
+  !env.PRIVATE_KEY.includes('-----BEGIN RSA PRIVATE KEY-----')
+    ? // Support optional base64 decoding of the private key to prevent issues with complicated environment variable passing scenarios
+      Buffer.from(env.PRIVATE_KEY, 'base64').toString('utf8')
+    : // Handle a bug with multiline envs in docker - See https://github.com/moby/moby/issues/46773
+      (env.PRIVATE_KEY?.replace(/\\n/g, '\n') ?? '')
 
 /**
  * Generates an app access token for the app or an installation (if installationId is provided)
