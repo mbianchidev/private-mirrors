@@ -99,7 +99,7 @@ The authentication of the UI will still need to be a user's github.com user, but
 
 ## Integrating the App into GHE.com (Data Residency) or GHES
 
-The app also supports GitHub Enterprise Cloud with Data Residency (`*.ghe.com`) and GitHub Enterprise Server. Configure the server, REST API, GraphQL API, and client bundle URLs explicitly for your environment.
+The app also supports GitHub Enterprise Cloud with Data Residency (`*.ghe.com`) and GitHub Enterprise Server. Configure the server, REST API, and GraphQL API URLs explicitly for your environment.
 
 Set the following environment variables in addition to the GHEC variables above:
 
@@ -109,17 +109,9 @@ Set the following environment variables in addition to the GHEC variables above:
 # GHES: https://ghes.example.com
 GITHUB_SERVER_URL=https://acme.ghe.com
 
-# Same value as GITHUB_SERVER_URL, but inlined into client bundles at build time.
-# Required for client-side hooks and UI links to point at the correct host.
-NEXT_PUBLIC_GITHUB_SERVER_URL=https://acme.ghe.com
-
 # REST API and GraphQL URLs for the same GitHub host.
 GITHUB_API_URL=https://api.acme.ghe.com
 GITHUB_GRAPHQL_URL=https://api.acme.ghe.com/graphql
-
-# Same values as above, but inlined into client bundles at build time.
-NEXT_PUBLIC_GITHUB_API_URL=https://api.acme.ghe.com
-NEXT_PUBLIC_GITHUB_GRAPHQL_URL=https://api.acme.ghe.com/graphql
 
 # Committer email domain used on sync commits. Defaults to `users.noreply.github.com`.
 # Set explicitly for GHE/GHES (value depends on instance configuration), e.g.:
@@ -131,8 +123,8 @@ GITHUB_USER_EMAIL_DOMAIN=users.noreply.acme.ghe.com
 Notes:
 
 - The OAuth App / GitHub App, organizations, members and forks must all live on the same GHE instance.
-- The `NEXT_PUBLIC_*` variables are inlined into the client bundle at build time. When building the Docker image, pass them as build args (e.g. `--build-arg NEXT_PUBLIC_GITHUB_SERVER_URL=https://acme.ghe.com`). The bundled `Dockerfile` already forwards them into the `npm run build` step.
-- If you leave `GITHUB_USER_EMAIL_DOMAIN` unset on a non-github.com deployment, the app still falls back to `users.noreply.github.com` for compatibility, but it now logs a warning so you can correct the configuration.
+- GitHub configuration is read at runtime and safely passed from the server to client-side hooks and UI links. No duplicate `NEXT_PUBLIC_*` variables or Docker build arguments are required.
+- If these variables are unset, the app uses `github.com`, `api.github.com`, and `users.noreply.github.com` defaults.
 - The local webhook relay (`npm run webhook`) uses `github-app-webhook-relay-polling` against the GitHub App hook deliveries endpoint. It is best-effort on GHE; in production, use real webhook deliveries configured directly on your GitHub App.
 
 ## Usage

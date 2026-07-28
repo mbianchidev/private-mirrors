@@ -1,12 +1,13 @@
 import app from 'bot'
 import { githubGraphQlEndpointPlugin } from 'bot/rest'
 import { createNodeMiddleware, createProbot, ProbotOctokit } from 'probot'
-import { getGitHubApiUrl } from 'utils/github-urls'
+import { env } from '../../../env.mjs'
 
 const GheProbotOctokit = ProbotOctokit.plugin(
   githubGraphQlEndpointPlugin,
 ).defaults({
-  baseUrl: getGitHubApiUrl(),
+  baseUrl: env.GITHUB_API_URL,
+  githubGraphQlUrl: env.GITHUB_GRAPHQL_URL,
 })
 
 export const config = {

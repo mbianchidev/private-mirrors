@@ -11,7 +11,6 @@ import {
 } from '../../bot/octokit'
 import { Octokit } from '../../bot/rest'
 import { logger } from '../../utils/logger'
-import { getCommitterEmailDomainWithWarning } from '../../utils/server/committer-email'
 import { cleanupTempDir } from '../../utils/temp-dir'
 import {
   CreateMirrorSchema,
@@ -20,6 +19,7 @@ import {
   ListMirrorsSchema,
 } from './schema'
 import { TRPCError } from '@trpc/server'
+import { env } from '../../../env.mjs'
 
 const reposApiLogger = logger.getSubLogger({ name: 'repos-api' })
 
@@ -206,7 +206,7 @@ export const createMirrorHandler = async ({
       name: input.newRepoName,
       org: privateOrg,
       // @ts-expect-error 'internal' visibility is valid but not in octokit 5 type definitions
-      visibility: process.env.CREATE_MIRRORS_WITH_INTERNAL_VISIBILITY
+      visibility: env.CREATE_MIRRORS_WITH_INTERNAL_VISIBILITY
         ? 'internal'
         : 'private',
       description: `Mirror of ${input.forkRepoOwner}/${input.forkRepoName}`,
@@ -234,7 +234,7 @@ export const createMirrorHandler = async ({
       config: [
         `user.name=pma[bot]`,
         // We want to use the private installation ID as the email so that we can push to the private repo
-        `user.email=${privateInstallationId}+pma[bot]@${getCommitterEmailDomainWithWarning()}`,
+        `user.email=${privateInstallationId}+pma[bot]@${env.GITHUB_USER_EMAIL_DOMAIN}`,
       ],
     }
     const git = simpleGit(tempDir, options)
@@ -250,7 +250,7 @@ export const createMirrorHandler = async ({
       await git.addRemote('mirror', mirrorRemote)
 
       // Push commits in chunks so that large pushes don't encounter timeout issues
-      const chunkSize = Number(process.env.MIRROR_PUSH_CHUNK_SIZE ?? 1000)
+      const chunkSize = env.MIRROR_PUSH_CHUNK_SIZE
       const commitCount = Number(
         (
           await git.raw(['rev-list', '--first-parent', '--count', branch])
@@ -276,9 +276,7 @@ export const createMirrorHandler = async ({
       await git.push(['--no-verify', 'mirror', branch])
     })()
 
-    const MIRROR_SYNC_TIMEOUT_MS = Number(
-      process.env.MIRROR_SYNC_TIMEOUT_MS ?? 30_000,
-    )
+    const MIRROR_SYNC_TIMEOUT_MS = env.MIRROR_SYNC_TIMEOUT_MS
 
     // Sentinel returned by the timeout branch of Promise.race so the pending path
     // is distinguishable from a resolved git promise without throw/catch.
@@ -411,7 +409,7 @@ export const listMirrorsHandler = async ({
 
     return {
       mirrors: repos,
-      mirrorDeletionEnabled: process.env.DISABLE_MIRROR_DELETION !== 'true',
+      mirrorDeletionEnabled: !env.DISABLE_MIRROR_DELETION,
     }
   } catch (error) {
     reposApiLogger.info('Failed to fetch mirrors', { input, error })
@@ -506,7 +504,7 @@ export const deleteMirrorHandler = async ({
 }: {
   input: DeleteMirrorSchema
 }) => {
-  if (process.env.DISABLE_MIRROR_DELETION === 'true') {
+  if (env.DISABLE_MIRROR_DELETION) {
     throw new TRPCError({
       code: 'FORBIDDEN',
       message: 'Mirror deletion is disabled',
