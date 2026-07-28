@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { generateAuthUrl } from '../../src/utils/auth'
 
 describe('generateAuthUrl', () => {
   afterEach(() => {
+    vi.resetModules()
     vi.unstubAllEnvs()
   })
 
-  it('uses the configured server scheme and host', () => {
+  it('uses the configured server scheme and host', async () => {
     vi.stubEnv('GITHUB_SERVER_URL', 'http://ghes.example.com:8080')
+    vi.resetModules()
+    const { generateAuthUrl } = await import('../../src/utils/auth')
 
     const authUrl = new URL(generateAuthUrl('token', 'owner', 'repo'))
 
@@ -18,7 +20,11 @@ describe('generateAuthUrl', () => {
     expect(authUrl.pathname).toBe('/owner/repo')
   })
 
-  it('keeps the github.com default unchanged', () => {
+  it('keeps the github.com default unchanged', async () => {
+    delete process.env.GITHUB_SERVER_URL
+    vi.resetModules()
+    const { generateAuthUrl } = await import('../../src/utils/auth')
+
     const authUrl = new URL(generateAuthUrl('token', 'owner', 'repo'))
 
     expect(authUrl.protocol).toBe('https:')

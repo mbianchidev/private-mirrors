@@ -3,16 +3,15 @@ import { AuthOptions, Profile } from 'next-auth'
 import { JWT } from 'next-auth/jwt'
 import GitHub from 'next-auth/providers/github'
 import { logger } from '../../../../utils/logger'
-import {
-  getGitHubApiUrl,
-  getOAuthAccessTokenUrl,
-  getOAuthAuthorizationUrl,
-  getOAuthIssuer,
-} from '../../../../utils/github-urls'
+import { env } from '../../../../../env.mjs'
 
 import 'utils/proxy'
 
 const authLogger = logger.getSubLogger({ name: 'auth' })
+const githubEndpointConfig = {
+  apiUrl: env.GITHUB_API_URL,
+  graphQlUrl: env.GITHUB_GRAPHQL_URL,
+}
 
 /**
  * Converts seconds until expiration to date in milliseconds
@@ -31,7 +30,7 @@ const normalizeExpirationDate = (seconds: number) => {
 export const verifySession = async (token: string | undefined) => {
   if (!token) return false
 
-  const octokit = personalOctokit(token)
+  const octokit = personalOctokit(token, githubEndpointConfig)
   try {
     await octokit.rest.users.getAuthenticated()
     return true
@@ -63,7 +62,7 @@ export const refreshAccessToken = async (
       grant_type: 'refresh_token',
     })
 
-    const url = `${getOAuthAccessTokenUrl()}?${params.toString()}`
+    const url = `${env.GITHUB_SERVER_URL}/login/oauth/access_token?${params.toString()}`
 
     const response = await fetch(url, {
       headers: {
@@ -102,7 +101,7 @@ export const refreshAccessToken = async (
   }
 }
 
-const apiBaseUrl = getGitHubApiUrl()
+const apiBaseUrl = env.GITHUB_API_URL
 
 export const createGitHubUserinfoRequest =
   (apiBaseUrl: string) =>
@@ -146,17 +145,17 @@ export const nextAuthOptions: AuthOptions = {
     signIn: '/auth/login',
     error: '/auth/error',
   },
-  debug: process.env.NODE_ENV === 'development',
+  debug: env.NODE_ENV === 'development',
   providers: [
     GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      issuer: getOAuthIssuer(),
+      clientId: env.GITHUB_CLIENT_ID,
+      clientSecret: env.GITHUB_CLIENT_SECRET,
+      issuer: `${env.GITHUB_SERVER_URL}/login/oauth`,
       authorization: {
-        url: getOAuthAuthorizationUrl(),
+        url: `${env.GITHUB_SERVER_URL}/login/oauth/authorize`,
         params: { scope: 'repo, user, read:org' },
       },
-      token: getOAuthAccessTokenUrl(),
+      token: `${env.GITHUB_SERVER_URL}/login/oauth/access_token`,
       userinfo: {
         url: `${apiBaseUrl}/user`,
         // The built-in GitHub provider hardcodes `https://api.github.com/user/emails`
@@ -165,7 +164,7 @@ export const nextAuthOptions: AuthOptions = {
       },
     }),
   ],
-  secret: process.env.NEXTAUTH_SECRET!,
+  secret: env.NEXTAUTH_SECRET,
   logger: {
     error(code, metadata) {
       if (!(metadata instanceof Error) && metadata.provider) {
@@ -195,12 +194,12 @@ export const nextAuthOptions: AuthOptions = {
       }
 
       // Get the allowed handles list
-      const allowedHandles = (
-        process.env.ALLOWED_HANDLES?.split(',') ?? []
-      ).filter((handle) => handle !== '')
+      const allowedHandles = env.ALLOWED_HANDLES.split(',').filter(
+        (handle) => handle !== '',
+      )
 
       // Get the allowed orgs list
-      const allowedOrgs = (process.env.ALLOWED_ORGS?.split(',') ?? []).filter(
+      const allowedOrgs = env.ALLOWED_ORGS.split(',').filter(
         (org) => org !== '',
       )
 
@@ -233,7 +232,10 @@ export const nextAuthOptions: AuthOptions = {
         "Checking if any of user's orgs are in allowed orgs list",
       )
 
-      const octokit = personalOctokit(params.account?.access_token as string)
+      const octokit = personalOctokit(
+        params.account?.access_token as string,
+        githubEndpointConfig,
+      )
 
       // Get the user's organizations
       const orgs = await octokit
@@ -244,7 +246,9 @@ export const nextAuthOptions: AuthOptions = {
         })
 
       // Check if any of the user's organizations are in the allowed orgs list
-      if (orgs.some((org) => allowedOrgs.includes(org.login))) {
+      if (
+        orgs.some((org: { login: string }) => allowedOrgs.includes(org.login))
+      ) {
         authLogger.info(
           'User has an org in the allowed orgs list:',
           profile.login,
@@ -308,8 +312,8 @@ export const nextAuthOptions: AuthOptions = {
       // Refresh the access token
       const refreshedToken = await refreshAccessToken(
         token,
-        process.env.GITHUB_CLIENT_ID!,
-        process.env.GITHUB_CLIENT_SECRET!,
+        env.GITHUB_CLIENT_ID,
+        env.GITHUB_CLIENT_SECRET,
         token.refreshToken,
       )
 

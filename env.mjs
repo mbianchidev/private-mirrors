@@ -1,6 +1,11 @@
 import { createEnv } from '@t3-oss/env-nextjs'
 import { z } from 'zod'
 
+const DEFAULT_GITHUB_SERVER_URL = 'https://github.com'
+const DEFAULT_GITHUB_API_URL = 'https://api.github.com'
+const DEFAULT_GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql'
+const DEFAULT_GITHUB_USER_EMAIL_DOMAIN = 'users.noreply.github.com'
+
 export const env = createEnv({
   /*
    * Serverside Environment variables, not available on the client.
@@ -22,16 +27,29 @@ export const env = createEnv({
     PUBLIC_ORG: z.string().optional(),
     PRIVATE_ORG: z.string().optional(),
     // GitHub Enterprise (GHE.com Data Residency / GHES) configuration.
-    // When unset, defaults target github.com / api.github.com so existing
-    // deployments are unaffected. Set each custom URL explicitly for your GHE
-    // deployment.
-    GITHUB_SERVER_URL: z.string().url().optional(),
-    GITHUB_API_URL: z.string().url().optional(),
-    GITHUB_GRAPHQL_URL: z.string().url().optional(),
-    // Optional override for the committer email domain used on sync commits.
-    // Defaults to `users.noreply.github.com` for github.com; for GHE/GHES set
-    // this explicitly (the value depends on instance configuration).
-    GITHUB_USER_EMAIL_DOMAIN: z.string().optional(),
+    GITHUB_SERVER_URL: z
+      .string()
+      .url()
+      .optional()
+      .default(DEFAULT_GITHUB_SERVER_URL)
+      .transform((value) => value.replace(/\/+$/, '')),
+    GITHUB_API_URL: z
+      .string()
+      .url()
+      .optional()
+      .default(DEFAULT_GITHUB_API_URL)
+      .transform((value) => value.replace(/\/+$/, '')),
+    GITHUB_GRAPHQL_URL: z
+      .string()
+      .url()
+      .optional()
+      .default(DEFAULT_GITHUB_GRAPHQL_URL)
+      .transform((value) => value.replace(/\/+$/, '')),
+    GITHUB_USER_EMAIL_DOMAIN: z
+      .string()
+      .min(1)
+      .optional()
+      .default(DEFAULT_GITHUB_USER_EMAIL_DOMAIN),
     // Custom validation for a comma separated list of strings
     // ex: ajhenry,github,ahpook
     ALLOWED_HANDLES: z
@@ -103,20 +121,18 @@ export const env = createEnv({
         }
         return parsed
       }),
+    DISABLE_MIRROR_DELETION: z
+      .enum(['true', 'false', ''])
+      .optional()
+      .default('false')
+      .transform((value) => value === 'true'),
   },
   /*
    * Environment variables available on the client (and server).
    *
    * 💡 You'll get type errors if these are not prefixed with NEXT_PUBLIC_.
    */
-  client: {
-    // Mirrors of GitHub URL configuration that are also available in client
-    // bundles. Used by client-side hooks (Octokit) and UI link builders. These
-    // are inlined at build time, so they must be set during `npm run build`.
-    NEXT_PUBLIC_GITHUB_SERVER_URL: z.string().url().optional(),
-    NEXT_PUBLIC_GITHUB_API_URL: z.string().url().optional(),
-    NEXT_PUBLIC_GITHUB_GRAPHQL_URL: z.string().url().optional(),
-  },
+  client: {},
   /*
    * Due to how Next.js bundles environment variables on Edge and Client,
    * we need to manually destructure them to make sure all are included in bundle.
@@ -135,13 +151,13 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     PUBLIC_ORG: process.env.PUBLIC_ORG,
     PRIVATE_ORG: process.env.PRIVATE_ORG,
-    GITHUB_SERVER_URL: process.env.GITHUB_SERVER_URL,
-    GITHUB_API_URL: process.env.GITHUB_API_URL,
-    GITHUB_GRAPHQL_URL: process.env.GITHUB_GRAPHQL_URL,
-    GITHUB_USER_EMAIL_DOMAIN: process.env.GITHUB_USER_EMAIL_DOMAIN,
-    NEXT_PUBLIC_GITHUB_SERVER_URL: process.env.NEXT_PUBLIC_GITHUB_SERVER_URL,
-    NEXT_PUBLIC_GITHUB_API_URL: process.env.NEXT_PUBLIC_GITHUB_API_URL,
-    NEXT_PUBLIC_GITHUB_GRAPHQL_URL: process.env.NEXT_PUBLIC_GITHUB_GRAPHQL_URL,
+    GITHUB_SERVER_URL:
+      process.env.GITHUB_SERVER_URL ?? DEFAULT_GITHUB_SERVER_URL,
+    GITHUB_API_URL: process.env.GITHUB_API_URL ?? DEFAULT_GITHUB_API_URL,
+    GITHUB_GRAPHQL_URL:
+      process.env.GITHUB_GRAPHQL_URL ?? DEFAULT_GITHUB_GRAPHQL_URL,
+    GITHUB_USER_EMAIL_DOMAIN:
+      process.env.GITHUB_USER_EMAIL_DOMAIN ?? DEFAULT_GITHUB_USER_EMAIL_DOMAIN,
     ALLOWED_HANDLES: process.env.ALLOWED_HANDLES,
     ALLOWED_ORGS: process.env.ALLOWED_ORGS,
     SKIP_BRANCH_PROTECTION_CREATION:
@@ -152,6 +168,7 @@ export const env = createEnv({
       process.env.DELETE_INTERNAL_MERGE_COMMITS_ON_SYNC,
     MIRROR_SYNC_TIMEOUT_MS: process.env.MIRROR_SYNC_TIMEOUT_MS,
     MIRROR_PUSH_CHUNK_SIZE: process.env.MIRROR_PUSH_CHUNK_SIZE,
+    DISABLE_MIRROR_DELETION: process.env.DISABLE_MIRROR_DELETION,
   },
   skipValidation: process.env.SKIP_ENV_VALIDATIONS === 'true',
 })

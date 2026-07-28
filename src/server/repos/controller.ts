@@ -11,7 +11,7 @@ import {
 } from '../../bot/octokit'
 import { Octokit } from '../../bot/rest'
 import { logger } from '../../utils/logger'
-import { getCommitterEmailDomainWithWarning } from '../../utils/server/committer-email'
+import { cleanupTempDir } from '../../utils/temp-dir'
 import {
   CreateMirrorSchema,
   DeleteMirrorSchema,
@@ -19,10 +19,14 @@ import {
   ListMirrorsSchema,
 } from './schema'
 import { TRPCError } from '@trpc/server'
+import { env } from '../../../env.mjs'
 
 const reposApiLogger = logger.getSubLogger({ name: 'repos-api' })
 
 type MirrorRepo = Awaited<ReturnType<Octokit['rest']['repos']['createInOrg']>>
+type SearchRepo = Awaited<
+  ReturnType<Octokit['rest']['search']['repos']>
+>['data']['items'][number]
 type RepoRef = { owner: string; name: string }
 type SyncBranchRef = { owner: string; repo: string; branch: string }
 
@@ -35,11 +39,14 @@ const getForkRepoFromMirror = async (
   mirrorName: string,
 ): Promise<RepoRef | undefined> => {
   try {
-    const props = await octokit.rest.repos.getCustomPropertiesValues({
-      owner: mirrorOwner,
-      repo: mirrorName,
-    })
-    const forkProp = props.data.find((p) => p.property_name === 'fork')
+    const props =
+      await octokit.rest.repos.customPropertiesForReposGetRepositoryValues({
+        owner: mirrorOwner,
+        repo: mirrorName,
+      })
+    const forkProp = props.data.find(
+      (p: { property_name: string }) => p.property_name === 'fork',
+    )
     if (!forkProp || typeof forkProp.value !== 'string') return undefined
     const [owner, name] = forkProp.value.split('/')
     if (!owner || !name) return undefined
@@ -98,6 +105,7 @@ export const createMirrorHandler = async ({
   let publicOctokit: Octokit | undefined
   let mirrorRepo: MirrorRepo | undefined
   let syncBranchRef: SyncBranchRef | undefined
+  let tempDir: string | undefined
 
   try {
     reposApiLogger.info('createMirror', { input: input })
@@ -172,9 +180,11 @@ export const createMirrorHandler = async ({
 
     // Get the organization custom properties
     const orgCustomProps =
-      await privateOctokit.rest.orgs.getAllCustomProperties({
-        org: privateOrg,
-      })
+      await privateOctokit.rest.orgs.customPropertiesForReposGetOrganizationDefinitions(
+        {
+          org: privateOrg,
+        },
+      )
 
     // Creates custom property fork in the org if it doesn't exist
     if (
@@ -182,18 +192,20 @@ export const createMirrorHandler = async ({
         (prop: { property_name: string }) => prop.property_name === 'fork',
       )
     ) {
-      await privateOctokit.rest.orgs.createOrUpdateCustomProperty({
-        org: privateOrg,
-        custom_property_name: 'fork',
-        value_type: 'string',
-      })
+      await privateOctokit.rest.orgs.customPropertiesForReposCreateOrUpdateOrganizationDefinition(
+        {
+          org: privateOrg,
+          custom_property_name: 'fork',
+          value_type: 'string',
+        },
+      )
     }
 
     // Create the mirror repo in the private org
     mirrorRepo = await privateOctokit.rest.repos.createInOrg({
       name: input.newRepoName,
       org: privateOrg,
-      // @ts-expect-error because the rest API accepts internal as an option but the types aren't up to date
+      // @ts-expect-error 'internal' visibility is valid but not in octokit 5 type definitions
       visibility: process.env.CREATE_MIRRORS_WITH_INTERNAL_VISIBILITY
         ? 'internal'
         : 'private',
@@ -216,13 +228,13 @@ export const createMirrorHandler = async ({
     )
 
     // Create a temporary directory to clone the repo into
-    const tempDir = temporaryDirectory()
+    tempDir = temporaryDirectory()
 
     const options: Partial<SimpleGitOptions> = {
       config: [
         `user.name=pma[bot]`,
         // We want to use the private installation ID as the email so that we can push to the private repo
-        `user.email=${privateInstallationId}+pma[bot]@${getCommitterEmailDomainWithWarning()}`,
+        `user.email=${privateInstallationId}+pma[bot]@${env.GITHUB_USER_EMAIL_DOMAIN}`,
       ],
     }
     const git = simpleGit(tempDir, options)
@@ -314,6 +326,7 @@ export const createMirrorHandler = async ({
             syncBranchRef,
           })
         })
+        .finally(() => cleanupTempDir(tempDir, reposApiLogger))
 
       return {
         success: true,
@@ -323,6 +336,8 @@ export const createMirrorHandler = async ({
     }
 
     clearTimeout(timer)
+
+    await cleanupTempDir(tempDir, reposApiLogger)
 
     reposApiLogger.info('Mirror created', {
       org: mirrorRepo.data.owner.login,
@@ -342,6 +357,8 @@ export const createMirrorHandler = async ({
       (error as any)?.response?.data?.message ??
       (error as Error)?.message ??
       'An error occurred'
+
+    await cleanupTempDir(tempDir, reposApiLogger)
 
     await deleteMirrorAndSyncBranch({
       privateOctokit,
@@ -389,10 +406,13 @@ export const listMirrorsHandler = async ({
         order: 'desc',
         sort: 'updated',
       },
-      (response) => response.data,
+      (response: { data: SearchRepo[] }) => response.data,
     )
 
-    return repos
+    return {
+      mirrors: repos,
+      mirrorDeletionEnabled: process.env.DISABLE_MIRROR_DELETION !== 'true',
+    }
   } catch (error) {
     reposApiLogger.info('Failed to fetch mirrors', { input, error })
 
@@ -486,6 +506,13 @@ export const deleteMirrorHandler = async ({
 }: {
   input: DeleteMirrorSchema
 }) => {
+  if (process.env.DISABLE_MIRROR_DELETION === 'true') {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Mirror deletion is disabled',
+    })
+  }
+
   try {
     reposApiLogger.info('Deleting mirror', { input })
 

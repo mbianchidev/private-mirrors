@@ -1,6 +1,6 @@
 import { config } from '@probot/octokit-plugin-config'
 import { Octokit as Core } from 'octokit'
-import { getGitHubApiUrl, getGitHubGraphQlUrl } from '../utils/github-urls'
+import { logger } from '../utils/logger'
 
 type GraphQlConfigurableOctokit = {
   graphql: {
@@ -10,10 +10,20 @@ type GraphQlConfigurableOctokit = {
   }
 }
 
-export const githubGraphQlEndpointPlugin = (octokit: unknown) => {
+type GitHubGraphQlEndpointOptions = {
+  [key: string]: unknown
+  githubGraphQlUrl?: string
+}
+
+export const githubGraphQlEndpointPlugin = (
+  octokit: unknown,
+  options: GitHubGraphQlEndpointOptions,
+) => {
+  if (!options.githubGraphQlUrl) return {}
+
   const graphQlCapableOctokit = octokit as GraphQlConfigurableOctokit
   graphQlCapableOctokit.graphql = graphQlCapableOctokit.graphql.defaults({
-    url: getGitHubGraphQlUrl(),
+    url: options.githubGraphQlUrl,
   })
   return {}
 }
@@ -23,7 +33,25 @@ export const Octokit = Core.plugin(
   githubGraphQlEndpointPlugin,
 ).defaults({
   userAgent: `octokit-rest.js/repo-sync-bot`,
-  baseUrl: getGitHubApiUrl(),
 })
 
 export type Octokit = InstanceType<typeof Octokit>
+
+export type GitHubEndpointConfig = {
+  apiUrl: string
+  graphQlUrl: string
+}
+
+const personalOctokitLogger = logger.getSubLogger({ name: 'personal-octokit' })
+
+export const personalOctokit = (
+  token: string,
+  endpointConfig: GitHubEndpointConfig,
+) => {
+  return new Octokit({
+    auth: token,
+    log: personalOctokitLogger,
+    baseUrl: endpointConfig.apiUrl,
+    githubGraphQlUrl: endpointConfig.graphQlUrl,
+  })
+}

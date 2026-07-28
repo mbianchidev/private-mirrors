@@ -15,8 +15,18 @@ vi.mock('simple-git', () => ({
   default: () => stubbedGit,
 }))
 
+vi.mock('tempy', () => ({
+  temporaryDirectory: vi.fn(),
+}))
+
+vi.mock('../../src/utils/temp-dir', () => ({
+  cleanupTempDir: vi.fn(),
+}))
+
 import * as config from '../../src/bot/config'
 import * as auth from '../../src/utils/auth'
+import * as tempy from 'tempy'
+import { cleanupTempDir } from '../../src/utils/temp-dir'
 import reposRouter from '../../src/server/repos/router'
 import { Octomock } from '../octomock'
 import { createTestContext } from '../utils/auth'
@@ -122,6 +132,8 @@ describe('Repos router', () => {
     // Default to a small commit count so the chunked push loop is skipped and
     // only the final tip push runs. Tests that exercise chunking override this.
     stubbedGit.raw.mockResolvedValue('2\n')
+    vi.mocked(tempy.temporaryDirectory).mockReturnValue('mirror-test-dir')
+    vi.mocked(cleanupTempDir).mockResolvedValue(undefined)
   })
 
   it('should create a mirror when repo does not exist', async () => {
@@ -140,10 +152,10 @@ describe('Repos router', () => {
     om.mockFunctions.rest.repos.get.mockResolvedValueOnce(fakeForkRepo)
     om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
     om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
-    om.mockFunctions.rest.orgs.getAllCustomProperties.mockResolvedValue(
+    om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
       fakeOrgCustomProperties,
     )
-    om.mockFunctions.rest.orgs.createOrUpdateCustomProperty.mockResolvedValue(
+    om.mockFunctions.rest.orgs.customPropertiesForReposCreateOrUpdateOrganizationDefinition.mockResolvedValue(
       fakeOrgCustomProperties,
     )
     om.mockFunctions.rest.repos.createInOrg.mockResolvedValue(fakeMirrorRepo)
@@ -238,9 +250,11 @@ describe('Repos router', () => {
     om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
     om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
     stubbedGit.clone.mockResolvedValue({})
-    om.mockFunctions.rest.orgs.getAllCustomProperties.mockResolvedValue({
-      data: [{ fork: 'test' }],
-    })
+    om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
+      {
+        data: [{ fork: 'test' }],
+      },
+    )
     om.mockFunctions.rest.repos.createInOrg.mockResolvedValue({
       data: { owner: { login: 'github' }, name: 'test' },
     })
@@ -293,9 +307,11 @@ describe('Repos router', () => {
     om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
     om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
     stubbedGit.clone.mockResolvedValue({})
-    om.mockFunctions.rest.orgs.getAllCustomProperties.mockResolvedValue({
-      data: [{ fork: 'test' }],
-    })
+    om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
+      {
+        data: [{ fork: 'test' }],
+      },
+    )
     om.mockFunctions.rest.repos.createInOrg.mockResolvedValue({
       data: { owner: { login: 'github-test' }, name: 'test' },
     })
@@ -348,10 +364,10 @@ describe('Repos router', () => {
     om.mockFunctions.rest.repos.get.mockResolvedValueOnce(fakeForkRepo)
     om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
     om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
-    om.mockFunctions.rest.orgs.getAllCustomProperties.mockResolvedValue(
+    om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
       fakeOrgCustomProperties,
     )
-    om.mockFunctions.rest.orgs.createOrUpdateCustomProperty.mockResolvedValue(
+    om.mockFunctions.rest.orgs.customPropertiesForReposCreateOrUpdateOrganizationDefinition.mockResolvedValue(
       fakeOrgCustomProperties,
     )
     om.mockFunctions.rest.repos.createInOrg.mockResolvedValue(fakeMirrorRepo)
@@ -404,7 +420,7 @@ describe('Repos router', () => {
     om.mockFunctions.rest.repos.get.mockResolvedValueOnce(fakeForkRepo)
     om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
     om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
-    om.mockFunctions.rest.orgs.getAllCustomProperties.mockResolvedValue(
+    om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
       fakeOrgCustomProperties,
     )
     om.mockFunctions.rest.repos.createInOrg.mockResolvedValue(fakeMirrorRepo)
@@ -470,7 +486,7 @@ describe('Repos router', () => {
     om.mockFunctions.rest.repos.get.mockResolvedValueOnce(fakeForkRepo)
     om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
     om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
-    om.mockFunctions.rest.orgs.getAllCustomProperties.mockResolvedValue(
+    om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
       fakeOrgCustomProperties,
     )
     om.mockFunctions.rest.repos.createInOrg.mockResolvedValue(fakeMirrorRepo)
@@ -557,10 +573,12 @@ describe('Repos router', () => {
       om.mockFunctions.rest.apps.getOrgInstallation.mockResolvedValue(
         fakeOrgInstallation,
       )
-      om.mockFunctions.rest.repos.getCustomPropertiesValues.mockResolvedValue({
-        status: 200,
-        data: [{ property_name: 'fork', value: 'github/fork-test' }],
-      })
+      om.mockFunctions.rest.repos.customPropertiesForReposGetRepositoryValues.mockResolvedValue(
+        {
+          status: 200,
+          data: [{ property_name: 'fork', value: 'github/fork-test' }],
+        },
+      )
       om.mockFunctions.rest.repos.update.mockResolvedValue({
         status: 200,
         data: { name: 'renamed' },
@@ -600,10 +618,12 @@ describe('Repos router', () => {
       om.mockFunctions.rest.apps.getOrgInstallation.mockResolvedValue(
         fakeOrgInstallation,
       )
-      om.mockFunctions.rest.repos.getCustomPropertiesValues.mockResolvedValue({
-        status: 200,
-        data: [{ property_name: 'fork', value: 'github/fork-test' }],
-      })
+      om.mockFunctions.rest.repos.customPropertiesForReposGetRepositoryValues.mockResolvedValue(
+        {
+          status: 200,
+          data: [{ property_name: 'fork', value: 'github/fork-test' }],
+        },
+      )
       om.mockFunctions.rest.repos.update.mockResolvedValue({
         status: 200,
         data: { name: 'renamed' },
@@ -633,7 +653,7 @@ describe('Repos router', () => {
       om.mockFunctions.rest.apps.getOrgInstallation.mockResolvedValue(
         fakeOrgInstallation,
       )
-      om.mockFunctions.rest.repos.getCustomPropertiesValues.mockRejectedValue(
+      om.mockFunctions.rest.repos.customPropertiesForReposGetRepositoryValues.mockRejectedValue(
         new Error('nope'),
       )
       om.mockFunctions.rest.repos.update.mockResolvedValue({
@@ -657,6 +677,63 @@ describe('Repos router', () => {
     })
   })
 
+  describe('listMirror', () => {
+    const fakeMirrorList = [{ name: 'mirror-1' }, { name: 'mirror-2' }]
+
+    const setupListMirrorsMocks = () => {
+      vi.spyOn(config, 'getConfig').mockResolvedValue({
+        publicOrg: 'github',
+        privateOrg: 'github-test',
+      })
+
+      om.mockFunctions.rest.apps.getOrgInstallation.mockResolvedValue(
+        fakeOrgInstallation,
+      )
+      om.mockFunctions.rest.orgs.get.mockResolvedValue(fakeOrg)
+      om.mockFunctions.paginate.mockResolvedValue(fakeMirrorList)
+    }
+
+    it('returns mirrorDeletionEnabled: true when DISABLE_MIRROR_DELETION is unset', async () => {
+      const caller = t.createCallerFactory(reposRouter)(createTestContext())
+      setupListMirrorsMocks()
+
+      const res = await caller.listMirrors({
+        orgId: 'test',
+        forkName: 'fork-test',
+      })
+
+      expect(res.mirrors).toEqual(fakeMirrorList)
+      expect(res.mirrorDeletionEnabled).toBe(true)
+    })
+
+    it('returns mirrorDeletionEnabled: false when DISABLE_MIRROR_DELETION is "true"', async () => {
+      const caller = t.createCallerFactory(reposRouter)(createTestContext())
+      setupListMirrorsMocks()
+      vi.stubEnv('DISABLE_MIRROR_DELETION', 'true')
+
+      const res = await caller.listMirrors({
+        orgId: 'test',
+        forkName: 'fork-test',
+      })
+
+      expect(res.mirrors).toEqual(fakeMirrorList)
+      expect(res.mirrorDeletionEnabled).toBe(false)
+    })
+
+    it('returns mirrorDeletionEnabled: true when DISABLE_MIRROR_DELETION is "false"', async () => {
+      const caller = t.createCallerFactory(reposRouter)(createTestContext())
+      setupListMirrorsMocks()
+      vi.stubEnv('DISABLE_MIRROR_DELETION', 'false')
+
+      const res = await caller.listMirrors({
+        orgId: 'test',
+        forkName: 'fork-test',
+      })
+
+      expect(res.mirrorDeletionEnabled).toBe(true)
+    })
+  })
+
   describe('deleteMirror', () => {
     it('deletes the mirror and the sync branch ref on the public fork', async () => {
       const caller = t.createCallerFactory(reposRouter)(createTestContext())
@@ -669,10 +746,12 @@ describe('Repos router', () => {
       om.mockFunctions.rest.apps.getOrgInstallation.mockResolvedValue(
         fakeOrgInstallation,
       )
-      om.mockFunctions.rest.repos.getCustomPropertiesValues.mockResolvedValue({
-        status: 200,
-        data: [{ property_name: 'fork', value: 'github/fork-test' }],
-      })
+      om.mockFunctions.rest.repos.customPropertiesForReposGetRepositoryValues.mockResolvedValue(
+        {
+          status: 200,
+          data: [{ property_name: 'fork', value: 'github/fork-test' }],
+        },
+      )
       om.mockFunctions.rest.repos.delete.mockResolvedValue({ status: 204 })
       om.mockFunctions.rest.git.deleteRef.mockResolvedValue({ status: 204 })
 
@@ -691,6 +770,217 @@ describe('Repos router', () => {
         ref: 'heads/to-delete',
       })
       expect(res.success).toBe(true)
+    })
+
+    it('throws FORBIDDEN when DISABLE_MIRROR_DELETION is "true"', async () => {
+      const caller = t.createCallerFactory(reposRouter)(createTestContext())
+      vi.stubEnv('DISABLE_MIRROR_DELETION', 'true')
+
+      await expect(
+        caller.deleteMirror({
+          orgId: 'test',
+          mirrorName: 'to-delete',
+        }),
+      ).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+        message: 'Mirror deletion is disabled',
+      })
+
+      expect(om.mockFunctions.rest.repos.delete).not.toHaveBeenCalled()
+      expect(om.mockFunctions.rest.git.deleteRef).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('temp directory cleanup', () => {
+    it('cleans up the temp directory after a successful in-window mirror', async () => {
+      const caller = t.createCallerFactory(reposRouter)(createTestContext())
+
+      vi.spyOn(config, 'getConfig').mockResolvedValue({
+        publicOrg: 'github',
+        privateOrg: 'github-test',
+      })
+
+      om.mockFunctions.rest.apps.getOrgInstallation.mockResolvedValue(
+        fakeOrgInstallation,
+      )
+      om.mockFunctions.rest.orgs.get.mockResolvedValue(fakeOrg)
+      om.mockFunctions.rest.repos.get.mockResolvedValueOnce(repoNotFound)
+      om.mockFunctions.rest.repos.get.mockResolvedValueOnce(fakeForkRepo)
+      om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
+      om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
+      om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
+        fakeOrgCustomProperties,
+      )
+      om.mockFunctions.rest.repos.createInOrg.mockResolvedValue(fakeMirrorRepo)
+
+      vi.mocked(tempy.temporaryDirectory).mockReturnValue('temp-dir-success')
+
+      await caller.createMirror({
+        forkId: 'test',
+        orgId: 'test',
+        forkRepoName: 'fork-test',
+        forkRepoOwner: 'github',
+        newRepoName: 'test',
+      })
+
+      expect(cleanupTempDir).toHaveBeenCalledTimes(1)
+      expect(cleanupTempDir).toHaveBeenCalledWith(
+        'temp-dir-success',
+        expect.anything(),
+      )
+    })
+
+    it('cleans up the temp directory when in-window git work fails', async () => {
+      const caller = t.createCallerFactory(reposRouter)(createTestContext())
+
+      vi.spyOn(config, 'getConfig').mockResolvedValue({
+        publicOrg: 'github',
+        privateOrg: 'github-test',
+      })
+
+      om.mockFunctions.rest.apps.getOrgInstallation.mockResolvedValue(
+        fakeOrgInstallation,
+      )
+      om.mockFunctions.rest.orgs.get.mockResolvedValue(fakeOrg)
+      om.mockFunctions.rest.repos.get.mockResolvedValueOnce(repoNotFound)
+      om.mockFunctions.rest.repos.get.mockResolvedValueOnce(fakeForkRepo)
+      om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
+      om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
+      om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
+        fakeOrgCustomProperties,
+      )
+      om.mockFunctions.rest.repos.createInOrg.mockResolvedValue(fakeMirrorRepo)
+      om.mockFunctions.rest.repos.delete.mockResolvedValue({})
+      om.mockFunctions.rest.git.deleteRef.mockResolvedValue({})
+
+      vi.mocked(tempy.temporaryDirectory).mockReturnValue('temp-dir-failure')
+
+      // Force in-window failure: clone rejects synchronously, before timeout.
+      stubbedGit.clone.mockRejectedValue(new Error('clone failed'))
+
+      await expect(
+        caller.createMirror({
+          forkId: 'test',
+          orgId: 'test',
+          forkRepoName: 'fork-test',
+          forkRepoOwner: 'github',
+          newRepoName: 'test',
+        }),
+      ).rejects.toThrow()
+
+      expect(cleanupTempDir).toHaveBeenCalledTimes(1)
+      expect(cleanupTempDir).toHaveBeenCalledWith(
+        'temp-dir-failure',
+        expect.anything(),
+      )
+    })
+
+    it('calls cleanupTempDir with undefined when an error occurs before the temp directory is created', async () => {
+      const caller = t.createCallerFactory(reposRouter)(createTestContext())
+
+      vi.spyOn(config, 'getConfig').mockResolvedValue({
+        publicOrg: 'github',
+        privateOrg: 'github-test',
+      })
+
+      om.mockFunctions.rest.apps.getOrgInstallation.mockResolvedValue(
+        fakeOrgInstallation,
+      )
+      om.mockFunctions.rest.orgs.get.mockResolvedValue(fakeOrg)
+      om.mockFunctions.rest.repos.get.mockResolvedValueOnce(repoNotFound)
+      om.mockFunctions.rest.repos.get.mockResolvedValueOnce(fakeForkRepo)
+      om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
+      om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
+      om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
+        fakeOrgCustomProperties,
+      )
+      om.mockFunctions.rest.repos.delete.mockResolvedValue({})
+      om.mockFunctions.rest.git.deleteRef.mockResolvedValue({})
+
+      // Fail before tempDir is created — createInOrg runs before
+      // temporaryDirectory() in the controller.
+      om.mockFunctions.rest.repos.createInOrg.mockRejectedValue(
+        new Error('createInOrg failed'),
+      )
+
+      await expect(
+        caller.createMirror({
+          forkId: 'test',
+          orgId: 'test',
+          forkRepoName: 'fork-test',
+          forkRepoOwner: 'github',
+          newRepoName: 'test',
+        }),
+      ).rejects.toThrow()
+
+      expect(cleanupTempDir).toHaveBeenCalledTimes(1)
+      expect(cleanupTempDir).toHaveBeenCalledWith(undefined, expect.anything())
+    })
+
+    it('cleans up the temp directory after a successful background mirror', async () => {
+      const caller = t.createCallerFactory(reposRouter)(createTestContext())
+
+      vi.spyOn(config, 'getConfig').mockResolvedValue({
+        publicOrg: 'github',
+        privateOrg: 'github-test',
+      })
+
+      om.mockFunctions.rest.apps.getOrgInstallation.mockResolvedValue(
+        fakeOrgInstallation,
+      )
+      om.mockFunctions.rest.orgs.get.mockResolvedValue(fakeOrg)
+      om.mockFunctions.rest.repos.get.mockResolvedValueOnce(repoNotFound)
+      om.mockFunctions.rest.repos.get.mockResolvedValueOnce(fakeForkRepo)
+      om.mockFunctions.rest.git.getRef.mockResolvedValue(fakeBranchRef)
+      om.mockFunctions.rest.git.createRef.mockResolvedValue({ status: 201 })
+      om.mockFunctions.rest.orgs.customPropertiesForReposGetOrganizationDefinitions.mockResolvedValue(
+        fakeOrgCustomProperties,
+      )
+      om.mockFunctions.rest.repos.createInOrg.mockResolvedValue(fakeMirrorRepo)
+
+      vi.mocked(tempy.temporaryDirectory).mockReturnValue('temp-dir-pending')
+
+      // Hold the final push until after the timeout so the pending path is
+      // taken; then resolve it to simulate background success.
+      let resolvePush: () => void = () => {}
+      const pushPromise = new Promise<void>((resolve) => {
+        resolvePush = resolve
+      })
+      stubbedGit.clone.mockResolvedValue({})
+      stubbedGit.addRemote.mockResolvedValue({})
+      stubbedGit.push.mockReturnValue(pushPromise)
+
+      // Resolve when cleanup runs so the test waits for it.
+      const cleanupCalled = new Promise<void>((resolve) => {
+        vi.mocked(cleanupTempDir).mockImplementation(async () => {
+          resolve()
+        })
+      })
+
+      vi.stubEnv('MIRROR_SYNC_TIMEOUT_MS', '50')
+
+      const res = await caller.createMirror({
+        forkId: 'test',
+        orgId: 'test',
+        forkRepoName: 'fork-test',
+        forkRepoOwner: 'github',
+        newRepoName: 'test',
+      })
+
+      expect(res).toEqual({
+        success: true,
+        pending: true,
+        data: fakeMirrorRepo.data,
+      })
+
+      // Trip the background success and wait for cleanup.
+      resolvePush()
+      await cleanupCalled
+
+      expect(cleanupTempDir).toHaveBeenCalledWith(
+        'temp-dir-pending',
+        expect.anything(),
+      )
     })
   })
 })

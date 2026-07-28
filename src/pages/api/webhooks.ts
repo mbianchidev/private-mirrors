@@ -1,16 +1,14 @@
 import app from 'bot'
 import { githubGraphQlEndpointPlugin } from 'bot/rest'
 import { createNodeMiddleware, createProbot, ProbotOctokit } from 'probot'
-import { getGitHubApiUrl } from 'utils/github-urls'
-import { logger } from 'utils/logger'
+import { env } from '../../../env.mjs'
 
 const GheProbotOctokit = ProbotOctokit.plugin(
   githubGraphQlEndpointPlugin,
 ).defaults({
-  baseUrl: getGitHubApiUrl(),
+  baseUrl: env.GITHUB_API_URL,
+  githubGraphQlUrl: env.GITHUB_GRAPHQL_URL,
 })
-
-const probotLogger = logger.getSubLogger({ name: 'probot' })
 
 export const config = {
   api: {
@@ -18,14 +16,12 @@ export const config = {
   },
 }
 
-export default createNodeMiddleware(app, {
+// Probot v14 requires a pino logger so custom logging has been removed
+// In the future it is worth considering replacing tslog with pino entirely
+export default await createNodeMiddleware(app, {
   probot: createProbot({
     defaults: {
       Octokit: GheProbotOctokit,
-      log: {
-        child: () => probotLogger,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any,
     },
   }),
   webhooksPath: '/api/webhooks',

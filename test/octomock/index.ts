@@ -47,8 +47,8 @@ const mockFunctions = {
       updateMembership: vi.fn(),
       listForAuthenticatedUser: vi.fn(),
       listForUser: vi.fn(),
-      getAllCustomProperties: vi.fn(),
-      createOrUpdateCustomProperty: vi.fn(),
+      customPropertiesForReposGetOrganizationDefinitions: vi.fn(),
+      customPropertiesForReposCreateOrUpdateOrganizationDefinition: vi.fn(),
     },
     repos: {
       listForOrg: vi.fn(),
@@ -200,7 +200,7 @@ const mockFunctions = {
       declineInvitation: vi.fn(),
       listForUser: vi.fn(),
       getCommitRefSha: vi.fn(),
-      getCustomPropertiesValues: vi.fn(),
+      customPropertiesForReposGetRepositoryValues: vi.fn(),
       renameBranch: vi.fn(),
     },
     issues: {
@@ -308,13 +308,18 @@ const mockFunctions = {
       createRef: vi.fn(),
       deleteRef: vi.fn(),
     },
+    search: {
+      repos: vi.fn(),
+    },
   },
+  paginate: vi.fn(),
 }
 
 export class Octomock {
   mockFunctions: {
     rest: Record<string, Record<string, Mock>>
     config: Record<string, Mock>
+    paginate: Mock
   }
   defaultContext: { payload: { issue: { body: string; user: object } } }
 
