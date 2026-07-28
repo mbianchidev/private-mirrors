@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server'
 import { getConfig } from '../bot/config'
-import { personalOctokit } from '../bot/rest'
+import { personalOctokit } from '../bot/octokit'
 import { logger } from '../utils/logger'
 import { env } from '../../env.mjs'
 

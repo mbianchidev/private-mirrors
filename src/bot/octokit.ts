@@ -5,6 +5,8 @@ import { logger } from '../utils/logger'
 import { Octokit } from './rest'
 import { env } from '../../env.mjs'
 
+export { personalOctokit } from './rest'
+
 const appOctokitLogger = logger.getSubLogger({ name: 'app-octokit' })
 
 const privateKey = !env.PRIVATE_KEY.includes('-----BEGIN RSA PRIVATE KEY-----')

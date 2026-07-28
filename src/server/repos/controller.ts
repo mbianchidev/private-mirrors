@@ -206,7 +206,7 @@ export const createMirrorHandler = async ({
       name: input.newRepoName,
       org: privateOrg,
       // @ts-expect-error 'internal' visibility is valid but not in octokit 5 type definitions
-      visibility: env.CREATE_MIRRORS_WITH_INTERNAL_VISIBILITY
+      visibility: process.env.CREATE_MIRRORS_WITH_INTERNAL_VISIBILITY
         ? 'internal'
         : 'private',
       description: `Mirror of ${input.forkRepoOwner}/${input.forkRepoName}`,
@@ -250,7 +250,7 @@ export const createMirrorHandler = async ({
       await git.addRemote('mirror', mirrorRemote)
 
       // Push commits in chunks so that large pushes don't encounter timeout issues
-      const chunkSize = env.MIRROR_PUSH_CHUNK_SIZE
+      const chunkSize = Number(process.env.MIRROR_PUSH_CHUNK_SIZE ?? 1000)
       const commitCount = Number(
         (
           await git.raw(['rev-list', '--first-parent', '--count', branch])
@@ -276,7 +276,9 @@ export const createMirrorHandler = async ({
       await git.push(['--no-verify', 'mirror', branch])
     })()
 
-    const MIRROR_SYNC_TIMEOUT_MS = env.MIRROR_SYNC_TIMEOUT_MS
+    const MIRROR_SYNC_TIMEOUT_MS = Number(
+      process.env.MIRROR_SYNC_TIMEOUT_MS ?? 30_000,
+    )
 
     // Sentinel returned by the timeout branch of Promise.race so the pending path
     // is distinguishable from a resolved git promise without throw/catch.
@@ -409,7 +411,7 @@ export const listMirrorsHandler = async ({
 
     return {
       mirrors: repos,
-      mirrorDeletionEnabled: !env.DISABLE_MIRROR_DELETION,
+      mirrorDeletionEnabled: process.env.DISABLE_MIRROR_DELETION !== 'true',
     }
   } catch (error) {
     reposApiLogger.info('Failed to fetch mirrors', { input, error })
@@ -504,7 +506,7 @@ export const deleteMirrorHandler = async ({
 }: {
   input: DeleteMirrorSchema
 }) => {
-  if (env.DISABLE_MIRROR_DELETION) {
+  if (process.env.DISABLE_MIRROR_DELETION === 'true') {
     throw new TRPCError({
       code: 'FORBIDDEN',
       message: 'Mirror deletion is disabled',

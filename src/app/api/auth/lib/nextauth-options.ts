@@ -1,4 +1,4 @@
-import { personalOctokit } from 'bot/rest'
+import { personalOctokit } from 'bot/octokit'
 import { AuthOptions, Profile } from 'next-auth'
 import { JWT } from 'next-auth/jwt'
 import GitHub from 'next-auth/providers/github'
