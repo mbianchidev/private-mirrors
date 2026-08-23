@@ -112,8 +112,7 @@ export const createGitHubUserinfoRequest =
     client: { userinfo: (accessToken: string) => Promise<unknown> }
     tokens: { access_token?: string | null }
   }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const profile = (await client.userinfo(tokens.access_token!)) as any
+    const profile = (await client.userinfo(tokens.access_token!)) as Profile
 
     if (!profile.email) {
       try {
