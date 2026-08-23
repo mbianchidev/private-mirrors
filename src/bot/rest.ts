@@ -16,12 +16,12 @@ type GitHubGraphQlEndpointOptions = {
 }
 
 export const githubGraphQlEndpointPlugin = (
-  octokit: unknown,
+  octokit: GraphQlConfigurableOctokit,
   options: GitHubGraphQlEndpointOptions,
 ) => {
   if (!options.githubGraphQlUrl) return {}
 
-  const graphQlCapableOctokit = octokit as GraphQlConfigurableOctokit
+  const graphQlCapableOctokit = octokit satisfies GraphQlConfigurableOctokit
   graphQlCapableOctokit.graphql = graphQlCapableOctokit.graphql.defaults({
     url: options.githubGraphQlUrl,
   })

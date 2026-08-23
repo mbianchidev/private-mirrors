@@ -3,7 +3,7 @@ import { githubGraphQlEndpointPlugin } from 'bot/rest'
 import { createNodeMiddleware, createProbot, ProbotOctokit } from 'probot'
 import { env } from '../../../env.mjs'
 
-const GheProbotOctokit = ProbotOctokit.plugin(
+const CustomProbotOctokit = ProbotOctokit.plugin(
   githubGraphQlEndpointPlugin,
 ).defaults({
   baseUrl: env.GITHUB_API_URL,
@@ -21,7 +21,7 @@ export const config = {
 export default await createNodeMiddleware(app, {
   probot: createProbot({
     defaults: {
-      Octokit: GheProbotOctokit,
+      Octokit: CustomProbotOctokit,
     },
   }),
   webhooksPath: '/api/webhooks',
