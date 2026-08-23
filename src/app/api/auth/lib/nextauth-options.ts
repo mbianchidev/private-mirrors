@@ -109,10 +109,10 @@ export const createGitHubUserinfoRequest =
     client,
     tokens,
   }: {
-    client: { userinfo: (accessToken: string) => Promise<unknown> }
+    client: { userinfo: (accessToken: string) => Promise<Profile> }
     tokens: { access_token?: string | null }
   }) => {
-    const profile = (await client.userinfo(tokens.access_token!)) as Profile
+    const profile: Profile = await client.userinfo(tokens.access_token!)
 
     if (!profile.email) {
       try {
