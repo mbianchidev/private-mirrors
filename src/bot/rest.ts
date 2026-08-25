@@ -18,6 +18,7 @@ type GitHubGraphQlEndpointOptions = {
   githubGraphQlUrl?: string
 }
 
+//create a custom-endpoint GraphQL function, copy pagination to it, and get back onto Octokit
 export const githubGraphQlEndpointPlugin = (
   octokit: GraphQlConfigurableOctokit,
   options: GitHubGraphQlEndpointOptions,
@@ -25,9 +26,11 @@ export const githubGraphQlEndpointPlugin = (
   if (!options.githubGraphQlUrl) return {}
 
   const graphQlCapableOctokit = octokit satisfies GraphQlConfigurableOctokit
+  // defaults() returns a new function without plugin-added properties
   const configuredGraphQl = graphQlCapableOctokit.graphql.defaults({
     url: options.githubGraphQlUrl,
   })
+  // this preserves GraphQL pagination (iterator included)
   configuredGraphQl.paginate = graphQlCapableOctokit.graphql.paginate
   graphQlCapableOctokit.graphql = configuredGraphQl
   return {}
