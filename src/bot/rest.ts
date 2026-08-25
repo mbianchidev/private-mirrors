@@ -2,11 +2,15 @@ import { config } from '@probot/octokit-plugin-config'
 import { Octokit as Core } from 'octokit'
 import { logger } from '../utils/logger'
 
+type GraphQlPaginate = InstanceType<typeof Core>['graphql']['paginate']
+
 type GraphQlConfigurableOctokit = {
   graphql: {
     defaults: (options: {
       url: string
     }) => GraphQlConfigurableOctokit['graphql']
+    // might be undefined
+    paginate?: GraphQlPaginate
   }
 }
 
@@ -15,6 +19,7 @@ type GitHubGraphQlEndpointOptions = {
   githubGraphQlUrl?: string
 }
 
+//Copy pagination to custom GraphQL function, and get it back onto Octokit
 export const githubGraphQlEndpointPlugin = (
   octokit: GraphQlConfigurableOctokit,
   options: GitHubGraphQlEndpointOptions,
@@ -22,9 +27,13 @@ export const githubGraphQlEndpointPlugin = (
   if (!options.githubGraphQlUrl) return {}
 
   const graphQlCapableOctokit = octokit satisfies GraphQlConfigurableOctokit
-  graphQlCapableOctokit.graphql = graphQlCapableOctokit.graphql.defaults({
+  // defaults() returns a new function without plugin-added properties
+  const configuredGraphQl = graphQlCapableOctokit.graphql.defaults({
     url: options.githubGraphQlUrl,
   })
+  // this preserves GraphQL pagination (iterator included) by adding it back
+  configuredGraphQl.paginate = graphQlCapableOctokit.graphql.paginate
+  graphQlCapableOctokit.graphql = configuredGraphQl
   return {}
 }
 
