@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import nock from 'nock'
+import { getReposInOrgGQL } from '../../src/bot/graphql'
 
 describe('Octokit GitHub Enterprise configuration', () => {
   afterEach(() => {
@@ -44,6 +46,74 @@ describe('Octokit GitHub Enterprise configuration', () => {
       'https://api.acme.ghe.com',
     )
     expect(graphqlEndpoint.url).toBe('https://api.acme.ghe.com/graphql')
+  })
+
+  it('paginates the app GraphQL query through the configured endpoint', async () => {
+    const graphqlMock = nock('https://api.acme.ghe.com')
+      .post('/graphql', {
+        query: getReposInOrgGQL,
+        variables: {
+          login: 'acme',
+          isFork: true,
+        },
+      })
+      .reply(200, {
+        data: {
+          organization: {
+            repositories: {
+              totalCount: 2,
+              nodes: [{ name: 'first' }],
+              pageInfo: {
+                hasNextPage: true,
+                endCursor: 'next-page',
+              },
+            },
+          },
+        },
+      })
+      .post('/graphql', {
+        query: getReposInOrgGQL,
+        variables: {
+          login: 'acme',
+          isFork: true,
+          cursor: 'next-page',
+        },
+      })
+      .reply(200, {
+        data: {
+          organization: {
+            repositories: {
+              totalCount: 2,
+              nodes: [{ name: 'second' }],
+              pageInfo: {
+                hasNextPage: false,
+                endCursor: 'next-page',
+              },
+            },
+          },
+        },
+      })
+
+    const { personalOctokit } = await import('../../src/bot/rest')
+    const result = await personalOctokit('token', {
+      apiUrl: 'https://api.acme.ghe.com',
+      graphQlUrl: 'https://api.acme.ghe.com/graphql',
+    }).graphql.paginate<{
+      organization: {
+        repositories: {
+          nodes: { name: string }[]
+        }
+      }
+    }>(getReposInOrgGQL, {
+      login: 'acme',
+      isFork: true,
+    })
+
+    expect(result.organization.repositories.nodes).toEqual([
+      { name: 'first' },
+      { name: 'second' },
+    ])
+    expect(graphqlMock.isDone()).toBe(true)
   })
 
   it('uses the configured REST API base URL for app auth requests', async () => {
