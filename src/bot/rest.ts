@@ -2,11 +2,14 @@ import { config } from '@probot/octokit-plugin-config'
 import { Octokit as Core } from 'octokit'
 import { logger } from '../utils/logger'
 
+type GraphQlPaginate = InstanceType<typeof Core>['graphql']['paginate']
+
 type GraphQlConfigurableOctokit = {
   graphql: {
     defaults: (options: {
       url: string
     }) => GraphQlConfigurableOctokit['graphql']
+    paginate?: GraphQlPaginate
   }
 }
 
@@ -22,9 +25,11 @@ export const githubGraphQlEndpointPlugin = (
   if (!options.githubGraphQlUrl) return {}
 
   const graphQlCapableOctokit = octokit satisfies GraphQlConfigurableOctokit
-  graphQlCapableOctokit.graphql = graphQlCapableOctokit.graphql.defaults({
+  const configuredGraphQl = graphQlCapableOctokit.graphql.defaults({
     url: options.githubGraphQlUrl,
   })
+  configuredGraphQl.paginate = graphQlCapableOctokit.graphql.paginate
+  graphQlCapableOctokit.graphql = configuredGraphQl
   return {}
 }
 
